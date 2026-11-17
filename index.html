@@ -51,7 +51,7 @@ body.touchdev #tip{bottom:auto;top:92px;font-size:14px}
 #toast{position:absolute;left:6%;right:6%;top:32%;text-align:center;font-family:Cinzel,serif;font-size:15px;letter-spacing:.1em;color:#f0f4ff;text-shadow:0 0 14px var(--acc,#4466ff),0 1px 3px #000;opacity:0;transition:opacity .5s}
 #buffs{position:absolute;left:84px;bottom:62px;font-family:Cinzel,serif;font-size:11px;letter-spacing:.12em;color:#ffe2b0;text-shadow:0 1px 3px #000}
 #buffs span{display:inline-block;margin-right:10px;padding:3px 8px;border:1px solid #ffffff33;background:#00000055}
-#hint{position:absolute;left:8%;right:8%;top:92px;text-align:center;font-size:15px;color:#c9d6f8;text-shadow:0 1px 3px #000;opacity:.9}
+#ebar:not(.hidden)~#hint{display:none}#hint{position:absolute;left:8%;right:8%;top:92px;text-align:center;font-size:15px;color:#c9d6f8;text-shadow:0 1px 3px #000;opacity:.9}
 #topbtns{position:absolute;top:calc(10px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));display:flex;gap:8px;pointer-events:auto}
 .tb.sm{position:static;width:40px;height:40px}
 .tb.sm svg{width:20px;height:20px}
@@ -437,12 +437,12 @@ float fbm4(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*vn(p);p=p*2.03+vec2
 float fbm5(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*vn(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v/.96875;}
 `;
 const U={time:{value:0},moonDir:{value:V3(0.1,0.26,-1).normalize()},fog:{value:new THREE.Color(0x060d26)},fogD:{value:0.0062},moonPow:{value:1},
-  skyLo:{value:V3(.02,.03,.14)},cloudA:{value:V3(.1,.07,.42)},cloudB:{value:V3(.3,.36,1)},star:{value:0.6},aur:{value:0},
+  skyLo:{value:V3(.02,.03,.14)},cloudA:{value:V3(.1,.07,.42)},cloudB:{value:V3(.3,.36,1)},star:{value:0.6},aur:{value:0},gal:{value:0},
   wDeep:{value:V3(.01,.03,.09)},wLo:{value:V3(.01,.03,.13)},wHi:{value:V3(.26,.42,1.05)},wSpec:{value:V3(.6,.75,1)}};
 function skyMat(){return new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
-  uniforms:{uTime:U.time,uMoonDir:U.moonDir,uFog:U.fog,uMoonPow:U.moonPow,uLo:U.skyLo,uCA:U.cloudA,uCB:U.cloudB,uStar:U.star,uAur:U.aur},
+  uniforms:{uTime:U.time,uMoonDir:U.moonDir,uFog:U.fog,uMoonPow:U.moonPow,uLo:U.skyLo,uCA:U.cloudA,uCB:U.cloudB,uStar:U.star,uAur:U.aur,uGal:U.gal},
   vertexShader:`varying vec3 vD;void main(){vD=position;vec4 p=projectionMatrix*modelViewMatrix*vec4(position,1.);gl_Position=p.xyww;}`,
-  fragmentShader:`precision highp float;uniform float uTime,uMoonPow,uStar,uAur;uniform vec3 uMoonDir,uFog,uLo,uCA,uCB;varying vec3 vD;${GLSL_NOISE}
+  fragmentShader:`precision highp float;uniform float uTime,uMoonPow,uStar,uAur,uGal;uniform vec3 uMoonDir,uFog,uLo,uCA,uCB;varying vec3 vD;${GLSL_NOISE}
   void main(){vec3 d=normalize(vD);float h=d.y;
     vec3 base=mix(uFog,uLo,smoothstep(0.0,0.5,h));
     vec2 uv=d.xz/(max(h,0.)+0.22)*0.9;
@@ -454,7 +454,8 @@ function skyMat(){return new THREE.ShaderMaterial({side:THREE.BackSide,depthWrit
     vec3 col=mix(base,cc,cl*smoothstep(-0.02,0.2,h));
     vec2 sp=d.xz/(max(h,0.)+0.35)*70.;vec2 ci=floor(sp);float st=step(0.982,hash(ci));vec2 f=fract(sp)-0.5;
     st*=smoothstep(0.16,0.0,length(f))*(0.55+0.45*sin(uTime*1.7+hash(ci+3.1)*40.));
-    col+=vec3(0.85,0.9,1.)*st*uStar*(1.-cl)*smoothstep(0.08,0.35,h)*(1.-pow(m,6.));
+    col+=vec3(0.85,0.9,1.)*st*uStar*(1.-cl*(1.-uGal*0.8))*smoothstep(0.08,0.35,h)*(1.-pow(m,6.));
+    if(uGal>0.01){vec2 s2=d.xz/(max(h,0.)+0.35)*170.;vec2 c2i=floor(s2);float hh=hash(c2i);float t2=step(0.9,hh)*smoothstep(0.3,0.0,length(fract(s2)-0.5))*(0.35+0.65*hash(c2i+7.3));vec2 s3=d.xz/(max(h,0.)+0.35)*38.;vec2 c3i=floor(s3);float t3=step(0.975,hash(c3i+1.7))*smoothstep(0.22,0.0,length(fract(s3)-0.5));float neb=smoothstep(0.35,0.8,fbm4(uv*0.7+vec2(4.,9.)));col+=(vec3(0.9,0.92,1.)*t2*0.9+vec3(1.,0.98,0.95)*t3*1.6)*uGal*smoothstep(0.0,0.2,h);col+=mix(vec3(0.16,0.05,0.5),vec3(0.42,0.2,1.0),c2)*neb*uGal*0.55*smoothstep(0.0,0.3,h);}
     col+=uCB*pow(m,24.)*0.55*uMoonPow+uCB*pow(m,4.)*0.12;
     if(uAur>0.01&&h>0.06){float ax=d.x/(h+0.35),az=d.z/(h+0.35);float band=fbm4(vec2(ax*0.9+uTime*0.006,az*0.3+3.));float rib=smoothstep(0.4,0.5,band)*smoothstep(0.64,0.5,band);float ray=0.55+0.45*sin(ax*30.+fbm4(vec2(ax*5.,uTime*0.04))*10.);
       vec3 ac=mix(vec3(0.12,0.95,0.62),vec3(0.5,0.32,1.),smoothstep(0.12,0.7,h));col+=ac*rib*ray*uAur*smoothstep(0.06,0.3,h)*(1.-cl*0.75)*0.5;}
@@ -1456,7 +1457,7 @@ const THEMES={
 };
 const MAP_ORDER=['mondsee','goblin','pilz'];
 function applyTheme(th,dung){RIM.value.set(th.rim||th.acc2||'#9fb6ec').multiplyScalar((th.rimK||0.5)*0.62);const AUR={mondsee:1,gasse:0.7,pilz:0.55,goblin:0.3};U.aur.value=dung?0:(AUR[th.id]||0);PU.uGrade.value={gnome:0.3,burg:0.35,augenwald:0.45,pilzwald:0.6}[th.id]||1;U.fog.value.setHex(dung?dung.fog:th.fog);U.fogD.value=th.fogD;U.moonDir.value.copy(th.moonDir);
-  U.skyLo.value.set(...th.skyLo);U.cloudA.value.set(...th.cloudA);U.cloudB.value.set(...th.cloudB);U.star.value=th.star;
+  U.skyLo.value.set(...th.skyLo);U.cloudA.value.set(...th.cloudA);U.cloudB.value.set(...th.cloudB);U.star.value=th.star;U.gal.value=th.gal||0;
   U.wDeep.value.set(...th.wDeep);U.wLo.value.set(...th.wLo);U.wHi.value.set(...th.wHi);U.wSpec.value.set(...th.wSpec);
   PU.uSat.value=th.sat;PU.uMul.value.set(...th.mul);PU.uSh.value.set(...th.sh);
   const r=document.documentElement.style;r.setProperty('--acc',th.acc);r.setProperty('--acc2',th.acc2);r.setProperty('--accA',th.acc+'66');}
@@ -4126,7 +4127,7 @@ function mnStory(M,dt){const AR=MN.AR,e=MN.boss;const d=Math.hypot(P.x-AR.x,P.z-
 function mnWin(M){P.hp=P.maxHp;if(!P.weapons.includes('cannon')){P.weapons.push('cannon');P.ammo=Math.max(P.ammo||0,6);P.mag=3;}if(storyOn()&&P.st===8)P.st=9;doSave();updObjective();SFX.relic();
   setTimeout(()=>{if(cur!==M)return;toast('Im Schrott liegt die neue Technologie · die Goblin-Kanone gehört dir');},1800);setTimeout(()=>{if(cur!==M)return;toast(isTouch?'Waffe wechseln: Beutel öffnen':'Waffe wechseln mit R · die Kanone schießt, so weit du zielst');},5200);story2Enter(M,true);}
 /* ================= DIE GASSE: Knochen, Laternen, lila Becher ================= */
-THEMES.gasse={id:'gasse',name:'Die Knochengasse',inName:'in der Knochengasse',fog:0x0a0c1c,fogD:0.016,moonDir:V3(-0.35,0.42,-0.84).normalize(),skyLo:[.03,.03,.1],cloudA:[.06,.06,.16],cloudB:[.2,.22,.42],star:0.35,
+THEMES.gasse={id:'gasse',name:'Die Knochengasse',inName:'in der Knochengasse',fog:0x0a0c1c,fogD:0.016,moonDir:V3(-0.35,0.42,-0.84).normalize(),skyLo:[.03,.01,.12],cloudA:[.1,.03,.36],cloudB:[.32,.16,.8],star:1.3,gal:1,
   wDeep:[.01,.01,.04],wLo:[.03,.03,.1],wHi:[.3,.3,.6],wSpec:[.8,.8,1],sat:1.15,mul:[0.95,0.93,1.08],sh:[.01,.0,.03],acc:'#a070ff',acc2:'#ffc070',music:'gasse',amb:'gasse',rim:'#8090ff',rimK:0.7};
 MUS.gasse=Object.assign({},MUS.goblin,{root:47,chords:[[0,3,7,10],[-2,2,5,10],[-4,0,3,8],[-5,-1,2,7]],scale:[0,2,3,5,7,8,11],bar:10,cut:900});
 const GS={Z0:66,Z1:-70,W:4.6,bar:{x:-11.5,z:-30},coach:{x:11,z:6}};
@@ -4260,7 +4261,7 @@ Object.assign(ET,{
   wichtel:{hp:30,speed:3.9,dmg:8,range:1.5,wind:0.35,cool:0.9,r:0.3,name:'Wutwichtel',silver:4},
 });
 Object.assign(CREATURES,{
-  wanst:{name:'Psychose Koka Schaden',kind:'Bosse',map:'gnome',ic:'eye',col:'#e04a3a',desc:'Zwei Dutzend Gnome, ineinander gehüpft und zu einem einzigen Ding verknotet. Hundert Mützen, ein Maul. Wirft mit sich selbst.'},
+  wanst:{name:'Psychose Koka Schaden',kind:'Bosse',map:'gnome',ic:'eye',col:'#e04a3a',desc:'Vierzehn Gnome, aufeinander gestapelt und zu einem einzigen Narren verschmolzen. Kalkweißes Gesicht, Narrenkappe mit drei Schellen, ein Grinsen bis zu den Ohren. Wirft mit sich selbst.'},
   wichtel:{name:'Wutwichtel',kind:'Gegner',map:'gnome',ic:'leaf',col:'#f0b020',desc:'Fällt von Psychose Koka Schaden ab und ist sofort beleidigt. Klein, schnell, beißt in Schienbeine.'},
 });
 const sfl=k=>!!(P.sf&&P.sf[k]);const sfSet=k=>{P.sf=P.sf||{};P.sf[k]=1;};
@@ -4305,7 +4306,7 @@ function gnomeEnter(M,at){GB.phase='idle';GB.boss=null;epClear();
     else{gbCrowd(M);if(sfl('gnLead')){const p=freeSpot(M,F.x+(0-F.x)/Math.hypot(F.x,F.z)*13,F.z+(0-F.z)/Math.hypot(F.x,F.z)*13,0.5);const n=sNpc(M,'wim',WIM,G.g,p.x,p.z,0);n.lead=0;}else{const p=freeSpot(M,d.outX+1.4,d.outZ+0.8,0.5);const n=sNpc(M,'wim',WIM,G.g,p.x,p.z,d.yaw||0);if(at)autoTalk(M,n,15,30);}}}
   if(P.st>=20){const d=M.doors.find(d=>d.kind==='tavern');const G=wimG();G.g.rotation.x=0;const p=freeSpot(M,d.outX+1.4,d.outZ+0.8,0.5);sNpc(M,'wim',WIM,G.g,p.x,p.z,d.yaw||0);}
   if(P.st>=16&&P.st<=19){const G=wimG();const p=freeSpot(M,F.x+2,F.z+2,0.5);const n=sNpc(M,'wim',WIM,G.g,p.x,p.z,0,'Mit '+WIM+' sprechen');n.turn=false;G.g.rotation.x=-1.45;G.g.position.y=M.groundH(p.x,p.z)+0.22;}}
-function gbCrowd(M){const F=M.field;for(let i=0;i<14;i++){const a=i/14*Math.PI*2;const G=buildGnome(Object.assign({s:0.6+((i*7)%5)*0.02},GN_LOOKS[i%GN_LOOKS.length]));const x=F.x+Math.cos(a)*3.4,z=F.z+Math.sin(a)*3.4;G.g.position.set(x,M.groundH(x,z),z);G.g.rotation.y=Math.atan2(F.x-x,F.z-z);rimAll(G.g,0.12);M.scene.add(G.g);GB.crowd.push({G,x,z,bx:x,bz:z,a});}}
+function gbCrowd(M){const F=M.field;GB.ma=null;for(let i=0;i<14;i++){const a=i/14*Math.PI*2;const G=buildGnome(Object.assign({s:0.6+((i*7)%5)*0.02},GN_LOOKS[i%GN_LOOKS.length]));const x=F.x+Math.cos(a)*3.4,z=F.z+Math.sin(a)*3.4;G.g.position.set(x,M.groundH(x,z),z);G.g.rotation.y=Math.atan2(F.x-x,F.z-z);rimAll(G.g,0.12);M.scene.add(G.g);GB.crowd.push({G,x,z,bx:x,bz:z,a,s0:G.g.scale.x||1});}}
 function startCellar(M){if(busy)return;dungAsk(()=>startCellar0(M));}
 function startCellar0(M){if(busy)return;busy=true;state='loading';showUI();SFX.portal();fadeTo(1,0.9,()=>{const c=M.cellar;dungSeed=4242+(P.sideRuns||0)*613;const D=buildDungeon(2,dungSeed,'pilz',dungPlan('pilz',2,true,3+(P.sideRuns||0)));D.gn=1;P.sf=P.sf||{};P.sf.gnd=(P.sf.gnd||0)+1;if(!P.weapons.includes('gnomaxt')&&P.sf.gnd>=2&&Math.random()<0.35+0.2*(P.sf.gnd-2))P.sf.gax=1;D.side=true;D.name='Der Wurzelkeller';D.storyRet={map:'gnome',x:c.x+Math.sin(c.yaw)*1.5,z:c.z+Math.cos(c.yaw)*1.5,yaw:c.yaw+Math.PI,done(){if(storyOn()&&P.st===14)P.st=15;}};startDungeon(D);});}
 function story2Int(I){if(I.type!=='tavern'||I.mapId!=='gnome')return;const want=storyOn()&&((P.st===13&&sfl('wimIn'))||P.st===14);
@@ -4373,9 +4374,7 @@ function gnomeStoryTick(M,dt){if(P.st!==15)return;const F=M.field,w=M.sn_wim;
     w.y=M.groundH(w.x,w.z);if(GB.phase!=='fight'||!w.ko)w.mesh.position.set(w.x,w.y,w.z);}
   const pf=Math.hypot(P.x-F.x,P.z-F.z);
   if(GB.phase==='idle'&&GB.crowd.length&&pf<8.5){GB.phase='merge';GB.t=0;SFX.alert();toast('Vierzehn Köpfe drehen sich gleichzeitig um. Erwischt.');updObjective();gbIntro(M);}
-  if(GB.phase==='merge'){GB.t+=dt;const u=Math.min(1,GB.t/3.2);GB.crowd.forEach((c,i)=>{const k=Math.max(0,Math.min(1,(u*1.5-i*0.035)));const e=k*k;c.x=lerp(c.bx,F.x,e);c.z=lerp(c.bz,F.z,e);const hop=Math.abs(Math.sin(GB.t*9+i))*(0.5+k*1.6);c.G.g.position.set(c.x,M.groundH(c.x,c.z)+hop+e*1.2,c.z);c.G.g.rotation.y+=dt*(4+k*14);c.G.g.scale.setScalar(1-e*0.5);c.G.anim(T*3+i,1,false);});
-    if(Math.random()<0.3)burst(F.x+(Math.random()-.5)*2,1+Math.random()*2,F.z+(Math.random()-.5)*2,6,2,[0xd83a2a,0x2a6ad8,0xf0b020][Math.random()*3|0]);PU.uHue.value=u*0.25;
-    if(u>=1){PU.uHue.value=0;GB.crowd.forEach(c=>M.scene.remove(c.G.g));GB.crowd=[];sfSet('gnBoss');doSave();gbSpawnBoss(M,false);}}
+  if(GB.phase==='merge'){GB.t+=dt;gbMerge(M,dt);}
   if(GB.phase==='fight'){const e=GB.boss;if(!e)return;if(e.state==='idle')e.state='chase';
     if(e.dead){GB.phase='won';epClear();M.enemies.forEach(o=>{if(o.add&&!o.dead){o.hp=0;o.dead=true;}});P.hp=P.maxHp;P.sf.gnBoss=0;st2Step(16);SFX.relic();burst(e.x,2,e.z,60,4,0xf0b020);setTimeout(()=>{if(cur===M)toast('Psychose Koka Schaden zerfällt in Mützen · der Bann über dem Dorf ist gebrochen');},1500);
       if(w){w.ko=1;GB.wimWalk=0;GB.wimWave=0;w.lead=0;w.turn=false;if(!w.on){sNpc(M,'wim',WIM,M.wimG.g,w.x,w.z,0);}if(!M.items.includes(w))M.items.push(w);M.wimG.g.rotation.x=-1.45;w.mesh.position.set(w.x,M.groundH(w.x,w.z)+0.22,w.z);}return;}
@@ -4395,7 +4394,8 @@ function gbSpawnBoss(M,quick){const F=M.field;const e=makeEnemy('wanst',F.x,F.z,
 /* ---------- models ---------- */
 function story2Model(type,E,fl,grp){const Mt=gnMats();
   if(type==='wichtel'){const G=buildGnome(Object.assign({s:0.5},GN_LOOKS[(Math.random()*GN_LOOKS.length)|0]));grp.add(G.g);E.mats=[];const eye=basic({color:0xff3020});for(const s of[-1,1]){const m=mesh(sph(0.03,6,5),eye,s*0.07,0.86,0.2,G.g);}E.anim=(e,dt)=>{G.anim(e.ph,e.state==='chase'?1.4:0,e.state==='wind');G.g.position.y=e.state==='wind'?0.25*(1-e.wind/e.windT):0;};E.mats.push({emissive:{setHex(){}}});}
-  if(type==='wanst'){const G={};E.G3=G;const S=new THREE.Group();S.scale.setScalar(1.2);grp.add(S);G.S=S;
+  if(type==='wanst'){clownModel(E,grp,fl);return;}
+  if(type==='wanst_alt'){const G={};E.G3=G;const S=new THREE.Group();S.scale.setScalar(1.2);grp.add(S);G.S=S;
     const flesh=fl(std({color:0x7a4a40,roughness:0.85,normalMap:TX.leafN,normalScale:V2(1.2)}));const cloth=[0xd83a2a,0x2a6ad8,0x2f9a44,0xf0b020,0xb04ad0].map(c=>std({color:c,roughness:0.85}));const beard=std({color:0xf0ece0,roughness:1});const eyeM=basic({color:0xffe060});const dark=basic({color:0x100404});
     const body=new THREE.Group();body.position.y=2.3;S.add(body);G.body=body;const core=mesh(displace(new THREE.IcosahedronGeometry(1.75,4),0.3,1.3,17),flesh,0,0,0,body);core.scale.set(1.05,1.15,0.95);
     // gnome parts studding the mass: hats, faces, beards, boots
@@ -4979,7 +4979,7 @@ function dlgExtra(n,d){if(!d||!d.opts||!d.opts.length||!cur)return d;const ins=o
   if(trader&&ECON[cur.mapId||cur.id])ins({l:'Tauschwaren · kaufen und verkaufen',f:()=>openTrade()});
   {const go=gasseGameOpt(n);if(go&&d.opts.length<=2)ins(go);}
   if(n.id==='sk_doc')ins({l:'Was hast du im Koffer?',f:()=>openShop('doc','Doktor Schnabels Koffer')});
-  if(!trader&&cur.kind==='over'&&ECON[cur.id]&&!n.svc&&n.id!=='campfire'&&n.id!=='sk_doc'&&!n.riddle&&!n.gifted&&P.joints>0&&d.opts.length<=3&&!npcMark(n)&&n.id!=='wim'&&n.id!=='chiller'&&n.id!=='crack'&&n.id!=='odd'&&n.id!=='fatknight'&&n.id!=='board')
+  if(!trader&&cur.kind==='over'&&ECON[cur.id]&&!n.svc&&n.id!=='campfire'&&n.id!=='sk_doc'&&!n.riddle&&!n.gifted&&P.joints>0&&d.opts.length<=3&&!npcMark(n)&&n.id!=='wim'&&n.id!=='chiller'&&n.id!=='crack'&&n.id!=='odd'&&n.id!=='fatknight'&&n.id!=='board'&&n.id!=='chillgob')
     ins({l:'Einen rauchen',f:()=>{if(n.gifted)return;n.gifted=1;let h=0;for(const c of n.id+cur.id)h=(h*31+c.charCodeAt(0))%997;
       if(h%2){$('dTxt').textContent=pick(['Nicht im Dienst. Und ich bin immer im Dienst.','Lass mal. Meine Lunge gehört schon dem Moor.','Ich rauche nicht mit Blechmännern. Prinzip.','Heute nicht. Ich muss noch klar denken. Glaube ich.']);SFX.bad();return;}
       if(P.joints<=0)return;P.joints--;closeUI();startViceFx('joint',null,()=>{viceEffect('joint');repAdd(2);burst(n.x,cur.groundH(n.x,n.z)+1.7,n.z,18,0.7,0xd0d6e0);setTimeout(()=>toast(n.name+': '+tradeTip()),2600);});doSave();}});
@@ -5027,10 +5027,10 @@ function npcMark(n){if(n.vdead||n.id==='campfire')return null;
 function marksTick(dt){if(!cur||!cur.npcs||!cur.scene)return;MARK.t-=dt;
   if(MARK.t<=0){MARK.t=0.45;const sc=cur.scene;
     for(let i=MARK.list.length-1;i>=0;i--){const m=MARK.list[i];if(m.sc!==sc)continue;if(!cur.npcs.includes(m.n)||npcMark(m.n)!==m.k){sc.remove(m.sp);m.n._mk=null;MARK.list.splice(i,1);}}
-    for(const n of cur.npcs){const k=npcMark(n);if(!k||n._mk===k)continue;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:markTex(k==='q'?'?':'!',k==='s'?'#ffd060':k==='r'?'#ffffff':'#bfd4ff'),transparent:true,depthWrite:false,fog:false}));sp.scale.setScalar(k==='s'?0.85:0.7);sp.renderOrder=5;
+    for(const n of cur.npcs){const k=npcMark(n);if(!k||n._mk===k)continue;const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:markTex(k==='q'?'?':'!',k==='s'?'#ffd21e':k==='r'?'#ffffff':'#bfd4ff'),transparent:true,depthWrite:false,fog:false}));sp.scale.setScalar(k==='s'?0.85:0.7);sp.renderOrder=5;
       if(n._top==null){let top=2.3;try{const bx=new THREE.Box3().setFromObject(n.mesh);if(isFinite(bx.max.y)&&bx.max.y-bx.min.y>0.3)top=bx.max.y-(n.mesh.position.y||0);}catch(e){}n._top=Math.min(6,top);}
       sc.add(sp);n._mk=k;MARK.list.push({n,sp,sc,k});}}
-  for(const m of MARK.list){if(m.sc!==cur.scene)continue;const by=m.n.mesh&&m.n.mesh.position.y?m.n.mesh.position.y:(cur.groundH?cur.groundH(m.n.x,m.n.z):0);m.sp.position.set(m.n.x,by+m.n._top+0.5+Math.sin(T*2.4+m.n.x)*0.07,m.n.z);}}
+  for(const m of MARK.list){if(m.sc!==cur.scene)continue;const by=m.n.mesh&&m.n.mesh.position.y?m.n.mesh.position.y:(cur.groundH?cur.groundH(m.n.x,m.n.z):0);const kk=m.k==='s'?Math.max(1,Math.min(4.5,Math.hypot(m.n.x-P.x,m.n.z-P.z)/11)):1;if(m.k==='s')m.sp.scale.setScalar(0.85*kk);m.sp.position.set(m.n.x,by+m.n._top+0.5+(kk-1)*0.4+Math.sin(T*2.4+m.n.x)*0.07,m.n.z);}}
 function npcEssential(n){if(/^sk_[123]$/.test(n.id)&&storyOn()&&P.st<22)return true;if(storyOn()&&P.st===7&&/^folk/.test(n.id))return true;for(const k in QUESTS)if(QUESTS[k].npc===n.id)return true;return !!npcMark(n);}
 
 /* ---------- Hausschilder ---------- */
@@ -5502,14 +5502,11 @@ function storyCard(trk,esc,bar){const ci=chapIdx(),C=CHAPS[ci],done=P.st>=31;let
   h+=`<div class="qsec">Nebenziel</div><div class="qc"><div class="qh"><b>Das Licht des Mondes</b><span class="qtag">${Math.min(P.relics,3)} / 3</span></div><p>Drei Mondsteine liegen in den Grüften hinter den Toren. Bei jedem sitzen deine Jungs und warten.</p>${bar('Mondsteine',Math.min(P.relics,3)/3,Math.min(P.relics,3)+' / 3')}</div>`;return h;}
 /* ===== v28: Führung, Wim, Pilz-Chiller-Gespräch, Jungs, Kisten, Gassen, Pilz-Trip, Balance ===== */
 const DARK=0.86;
-/* ---------- Lichtsäule am Story-Ziel ---------- */
+/* ---------- Ausrufezeichen am Story-Ziel ---------- */
 const BK={t:0,tg:null};
-function beaconTick(dt){if(!cur||!cur.scene)return;BK.t-=dt;if(BK.t<=0){BK.t=0.4;let t=null;if(storyOn()&&state==='play'&&cur.kind==='over'&&!cur.bossWorld){try{const so=storyObj();t=so&&so.tgt&&so.tgt();}catch(e){}}BK.tg=t&&t.x!=null&&Math.hypot(t.x-P.x,t.z-P.z)>9?t:null;}
-  let g=cur._bk;if(!g){if(!BK.tg)return;g=cur._bk=new THREE.Group();const m=new THREE.MeshBasicMaterial({color:0xffd060,transparent:true,opacity:0.22,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false});const c=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.8,46,14,1,true),m);c.position.y=23;g.add(c);const c2=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.2,46,8,1,true),m);c2.position.y=23;g.add(c2);
-    const r=new THREE.Mesh(new THREE.RingGeometry(1.1,1.4,32),new THREE.MeshBasicMaterial({color:0xffd060,transparent:true,opacity:0.7,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));r.rotation.x=-Math.PI/2;r.position.y=0.12;g.add(r);g.userData={m,r};g.renderOrder=3;cur.scene.add(g);}
-  const on=!!BK.tg&&state==='play';g.visible=on;if(on){const t=BK.tg;g.position.set(t.x,cur.groundH?cur.groundH(t.x,t.z):0,t.z);g.userData.m.opacity=0.16+Math.sin(T*2.2)*0.06;g.userData.r.scale.setScalar(1+((T*0.6)%1)*0.8);g.userData.r.material.opacity=0.7*(1-((T*0.6)%1));}}
-
-/* ---------- Wim winkt draußen, dann Taverne ---------- */
+function beaconTick(dt){if(!cur||!cur.scene)return;BK.t-=dt;if(BK.t<=0){BK.t=0.4;let t=null;if(storyOn()&&state==='play'&&cur.kind==='over'&&!cur.bossWorld){try{const so=storyObj();t=so&&so.tgt&&so.tgt();}catch(e){}}BK.tg=t&&t.x!=null&&Math.hypot(t.x-P.x,t.z-P.z)>2.2?t:null;}
+  let g=cur._bk;if(!g){if(!BK.tg)return;const cv=document.createElement('canvas');cv.width=64;cv.height=128;const x=cv.getContext('2d');x.font='bold 118px Georgia,serif';x.textAlign='center';x.textBaseline='middle';x.lineWidth=9;x.strokeStyle='#3a2600';x.strokeText('!',32,66);x.fillStyle='#ffd21e';x.fillText('!',32,66);const tx=new THREE.CanvasTexture(cv);g=cur._bk=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,transparent:true,depthWrite:false,fog:false}));g.renderOrder=3;cur.scene.add(g);}
+  const on=!!BK.tg&&state==='play'&&!(cur.npcs||[]).some(n=>n._mk==='s'&&Math.hypot(n.x-BK.tg.x,n.z-BK.tg.z)<0.8);g.visible=on;if(on){const t=BK.tg,d=Math.hypot(t.x-P.x,t.z-P.z),k=Math.max(1,Math.min(4.5,d/11));g.position.set(t.x,(cur.groundH?cur.groundH(t.x,t.z):0)+2.45+(k-1)*0.6+Math.sin(T*3)*0.08,t.z);g.scale.set(0.42*k,0.84*k,1);}}
 function wimOutside(M,G){const d=M.doors.find(q=>q.kind==='tavern');const sx=M.spawn.x,sz=M.spawn.z;const l=Math.hypot(d.outX-sx,d.outZ-sz)||1;const k=Math.min(8,l*0.45);const p=freeSpot(M,sx+(d.outX-sx)/l*k,sz+(d.outZ-sz)/l*k,0.5);const n=sNpc(M,'wim',WIM,G.g,p.x,p.z,Math.atan2(sx-p.x,sz-p.z),'Den winkenden Gnom ansprechen');n.goTav=0;n.turn=true;GB.wimWave=1;}
 function wim13Obj(M){if(!sfl('wimIn'))return{t:'Ein Gnom winkt dir verstohlen zu · sprich ihn an',tgt:()=>M.sn_wim&&M.sn_wim.on?M.sn_wim:M.doors.find(d=>d.kind==='tavern')};return{t:'Folge '+WIM+' in die Taverne',tgt:()=>M.doors.find(d=>d.kind==='tavern')};}
 function wimWalkTick(M,dt){const w=M.sn_wim;if(!w||!w.on||!w.goTav)return;const d=M.doors.find(q=>q.kind==='tavern');const dx=d.outX-w.x,dz=d.outZ-w.z,l=Math.hypot(dx,dz);if(l<1.1){sNpcOff(M,'wim');w.goTav=0;GB.wimWalk=0;toast(WIM+' verschwindet in der Taverne');return;}
@@ -5529,7 +5526,7 @@ function chillerTalk(n){if(!storyOn()||P.st>=20)return chillerPhil(n);if(!sfl('c
 /* ---------- Die Jungs in der Taverne ---------- */
 function jungTalk(n){const idx=Math.max(0,BOYS.findIndex(b=>b.id===n.id)),drinker=idx%2===0;const hello=pick(['Na, Blechmann. Frag, was du wissen willst.','Setz dich. Was liegt an?','Du siehst aus, als hättest du Fragen.']);const back=t=>dlgSet(t,[{l:'Noch eine Frage',main:1,f:main},{l:'Gehen',f:closeUI}]);
   const C=CHAPS[chapIdx()];const opts=()=>[
-    {l:'Wo geht die Geschichte weiter?',main:1,f:()=>back(storyOn()?'Du steckst in Kapitel '+(chapIdx()+1)+': '+C.name+'. '+C.t+' Dein nächster Schritt steht immer oben im Bild, und draußen zeigt dir eine goldene Lichtsäule, wo er liegt. Wer ein goldenes Ausrufezeichen über dem Kopf hat, bringt dich weiter.':'Die Welt gehört dir. Mach, was du willst. Wir sitzen hier.')},
+    {l:'Wo geht die Geschichte weiter?',main:1,f:()=>back(storyOn()?'Du steckst in Kapitel '+(chapIdx()+1)+': '+C.name+'. '+C.t+' Dein nächster Schritt steht immer oben im Bild, und draußen zeigt dir ein gelbes Ausrufezeichen, wo er liegt. Wer ein goldenes Ausrufezeichen über dem Kopf hat, bringt dich weiter.':'Die Welt gehört dir. Mach, was du willst. Wir sitzen hier.')},
     {l:'Wie überlebe ich die Kämpfe?',f:()=>back('Weich aus, statt alles zu schlucken. Tränke sind selten, also heil dich am Rastplatz oder mit Mondbier. Vor einem Boss hilft Steinkraut gegen Schaden oder Rausch-Rot für mehr Wumms. Die Kanone hat drei Schuss, dann lädt sie ewig. Und in den Grüften: Schlag Kisten und Fässer kaputt, da liegt oft was drin.')},
     {l:'Wie komme ich an Silber?',f:()=>back('Nicht durch Totschlagen, das bringt nur Kleingeld. Kauf, was eine Welt billig hat, und verkauf es dort, wo es fehlt. '+tradeTip()+' Feilschen lohnt sich. Und pass auf dich auf: Wer fällt, verliert einen Teil.')},
     {l:'Was bringen Bier, Joints und Pilze?',f:()=>back('Bier heilt und macht mutig, aber wackelig. Joints machen dicht, das heißt mehr Beute und härtere Gegner. Die Sorten im Beutel helfen im Kampf. Glimmerpilze kannst du essen, dann wird alles bunt und du heilst langsam. Am Kessel eines Rastplatzes braust du das alles selbst.')},
@@ -6273,6 +6270,79 @@ function statTick(dt){if(state==='play'){P.stat=P.stat||{};P.stat.time=(P.stat.t
   if(!P.name&&!(P.sf&&P.sf.pna)&&state==='play'&&!cur.bossWorld&&cur.kind==='over'&&!busy&&(P.stat&&P.stat.time>4)){(P.sf=P.sf||{}).pna=1;nameAsk();return;}
   if(state!=='play')return;NET.t+=dt;if(NET.t>90){NET.t=0;if(NET.on!==false||Math.random()<0.2)netPush();}for(const e of cur.enemies){if(!e.boss)continue;if(!e.dead&&e.hp<e.max&&!e._bt)e._bt=0.001;if(e._bt&&!e.dead)e._bt+=dt;if(e.dead&&e._bt&&!e._btR){e._btR=1;P.bt=P.bt||{};const k=String(e.name||'Boss').slice(0,40);if(!P.bt[k]||e._bt<P.bt[k]){const first=!P.bt[k];P.bt[k]=Math.round(e._bt*10)/10;setTimeout(()=>toast((first?'Zeit':'Neue Bestzeit')+' · '+k+' in '+fmtB(e._bt)),2600);}doSave();}}}
 
+/* ---------- Psychose Koka Schaden: der Narr ---------- */
+function clownModel(E,grp,fl){const G={};E.G3=G;const S=new THREE.Group();S.scale.setScalar(1.2);grp.add(S);G.S=S;
+  const red=fl(std({color:0xb01420,roughness:0.75,normalMap:TX.leafN,normalScale:V2(0.8)})),blk=fl(std({color:0x14101c,roughness:0.8})),yel=fl(std({color:0xd8a418,roughness:0.7})),wht=fl(std({color:0xe8e4dc,roughness:0.65,normalMap:TX.rockN,normalScale:V2(0.5)})),ruff=std({color:0xd8d0c0,roughness:0.9,side:THREE.DoubleSide,flatShading:true}),gold=std({color:0xe0b030,metalness:0.9,roughness:0.3,emissive:0x3a2600}),dark=basic({color:0x050208}),tooth=std({color:0xe8dca0,roughness:0.5}),lip=std({color:0x7a0810,roughness:0.5}),flesh=std({color:0xc8907a,roughness:0.8}),eyeG=basic({color:0xffd020});[red,blk,yel,wht].forEach(m=>rimMat(m,0.4));
+  // Beine: dürr, zweifarbig, Schnabelschuhe mit Schelle
+  G.legs=[];for(const s of[-1,1]){const l=new THREE.Group();l.position.set(s*0.42,1.75,0);S.add(l);mesh(cyl(0.2,0.14,0.9,8),s>0?red:blk,0,-0.45,0,l);mesh(sph(0.17,8,6),yel,0,-0.9,0,l);mesh(cyl(0.13,0.11,0.8,8),s>0?blk:red,0,-1.3,0,l);const sh=mesh(sph(0.26,10,8),s>0?red:blk,0,-1.68,0.18,l);sh.scale.set(0.9,0.55,1.9);mesh(tube([[0,-1.7,0.6],[0,-1.6,0.95],[0,-1.3,1.05],[0,-1.2,0.88]],0.07,10,6),s>0?red:blk,0,0,0,l);mesh(sph(0.08,8,6),gold,0,-1.2,0.86,l);G.legs.push(l);}
+  const body=new THREE.Group();body.position.y=1.75;S.add(body);G.body=body;
+  // Rumpf: bucklig, Rautenmuster aus zwei Hälften
+  for(const s of[-1,1]){const h=mesh(new THREE.SphereGeometry(0.95,14,12,s>0?-Math.PI/2:Math.PI/2,Math.PI),s>0?red:blk,0,0.95,0,body);h.scale.set(0.95,1.3,0.85);}
+  for(let i=0;i<10;i++){const s=i%2?1:-1,y=0.2+((i/2)|0)*0.36;const d=mesh(new THREE.OctahedronGeometry(0.13,0),yel,s*0.36,y,0.72-Math.abs(y-0.95)*0.22,body);d.scale.set(1,1.4,0.25);}
+  mesh(sph(0.6,12,10),blk,0,1.75,-0.35,body).scale.set(1.25,0.8,0.9);
+  // drei Knöpfe: kleine Gnomgesichter mit Mütze
+  G.btn=[];for(let i=0;i<3;i++){const k=new THREE.Group();k.position.set(0,0.4+i*0.42,0.84-Math.abs(i-1)*0.08);body.add(k);mesh(sph(0.13,10,8),flesh,0,0,0,k);const ht=mesh(new THREE.ConeGeometry(0.11,0.26,8),[red,yel,blk][i],0,0.16,0,k);mesh(new THREE.ConeGeometry(0.08,0.16,6),wht,0,-0.1,0.06,k).rotation.x=Math.PI;for(const s of[-1,1])mesh(sph(0.022,6,5),dark,s*0.05,0.03,0.115,k);G.btn.push(k);}
+  // Halskrause
+  for(let i=0;i<16;i++){const a=i/16*6.28;const r=mesh(new THREE.ConeGeometry(0.2,0.75,4),ruff,Math.cos(a)*0.55,2.02,Math.sin(a)*0.5+0.02,body);r.rotation.set(Math.PI/2+0.35,0,0);r.rotation.order='YXZ';r.rotation.y=-a+Math.PI/2;r.scale.z=0.35;}
+  // Kopf: kalkweiß, Riesengrinsen, Rautenaugen
+  const H=new THREE.Group();H.position.set(0,2.55,0.22);body.add(H);G.head=H;mesh(sph(0.62,20,16),wht,0,0,0,H).scale.set(0.92,1.12,0.95);mesh(sph(0.4,14,12),wht,0,-0.42,0.12,H).scale.set(0.85,0.9,0.9);
+  for(const s of[-1,1]){const d=mesh(new THREE.OctahedronGeometry(0.2,0),dark,s*0.24,0.16,0.5,H);d.scale.set(0.75,1.5,0.3);const ey=mesh(sph(0.045,8,6),eyeG,s*0.24,0.16,0.57,H);(G.eyes=G.eyes||[]).push(ey);const gl=sprite(TX.glow,0xffb010,0.45);gl.position.set(s*0.24,0.16,0.6);gl.material.opacity=0.6;H.add(gl);
+    mesh(tube([[s*0.08,0.5,0.5],[s*0.26,0.6,0.46],[s*0.44,0.46,0.36]],0.03,8,5),blk,0,0,0,H);mesh(sph(0.12,8,6),std({color:0xc02030,roughness:0.6}),s*0.42,-0.14,0.4,H).scale.set(1,1,0.4);
+    mesh(tube([[s*0.02,-0.26,0.6],[s*0.3,-0.2,0.5],[s*0.5,0.02,0.34]],0.045,10,6),lip,0,0,0,H);}
+  mesh(sph(0.15,12,10),std({color:0xd01020,roughness:0.3,emissive:0x500408}),0,-0.03,0.62,H);
+  const maw=mesh(sph(0.36,14,10),dark,0,-0.4,0.42,H);maw.scale.set(1.25,0.55,0.5);G.maw=maw;const jaw=new THREE.Group();jaw.position.set(0,-0.42,0.3);H.add(jaw);G.jaw=jaw;mesh(sph(0.3,12,8),wht,0,-0.12,0.08,jaw).scale.set(1.05,0.5,0.9);
+  for(let i=0;i<9;i++){const a=(i/8-0.5)*1.5;const t1=mesh(new THREE.ConeGeometry(0.035,0.17,4),tooth,Math.sin(a)*0.4,-0.3-Math.cos(a)*0.03+Math.abs(a)*0.1,0.5+Math.cos(a)*0.1,H);t1.rotation.x=Math.PI;const t2=mesh(new THREE.ConeGeometry(0.03,0.14,4),tooth,Math.sin(a)*0.36,0.0,0.2+Math.cos(a)*0.1,jaw);}
+  // Narrenkappe: drei geschwungene Zipfel mit Schellen
+  const cap=new THREE.Group();cap.position.y=0.4;H.add(cap);G.cap=cap;mesh(new THREE.SphereGeometry(0.6,16,8,0,Math.PI*2,0,Math.PI*0.42),red,0,0,-0.02,cap).scale.set(0.98,1,1);const band=mesh(new THREE.TorusGeometry(0.56,0.07,6,20),yel,0,0.2,-0.02,cap);band.rotation.x=Math.PI/2;
+  G.bells=[];[[-1,red,0.0],[1,blk,0.0],[0,yel,-0.3]].forEach(([s,m,z],i)=>{const t=new THREE.Group();t.position.set(s*0.3,0.42,z);cap.add(t);const pts=s?[[0,0,0],[s*0.5,0.5,0],[s*1.05,0.35,0.05],[s*1.2,-0.2,0.1]]:[[0,0,0],[0,0.7,-0.2],[0,0.95,-0.75],[0,0.5,-1.05]];mesh(tube(pts,0.16,12,7),m,0,0,0,t).scale.set(1,1,1);const e=pts[3];mesh(new THREE.ConeGeometry(0.15,0.4,7),m,e[0],e[1]-0.1,e[2],t).rotation.x=Math.PI;const b=mesh(sph(0.12,10,8),gold,e[0],e[1]-0.34,e[2],t);G.bells.push({t,b,s});});
+  // Arme: überlang, weiße Handschuhe, Krallen
+  const arm=s=>{const a=new THREE.Group();a.position.set(s*0.92,1.6,0);body.add(a);mesh(sph(0.3,10,8),s>0?blk:red,0,0,0,a).scale.set(1.2,0.9,1);mesh(cyl(0.15,0.12,1.2,8),s>0?blk:red,0,-0.6,0,a);const el=new THREE.Group();el.position.y=-1.2;a.add(el);mesh(sph(0.14,8,6),yel,0,0,0,el);mesh(cyl(0.11,0.09,1.2,8),s>0?red:blk,0,-0.6,0,el);for(let i=0;i<6;i++){const q=i/6*6.28;const r=mesh(new THREE.ConeGeometry(0.09,0.3,4),ruff,Math.cos(q)*0.16,-1.14,Math.sin(q)*0.16,el);r.rotation.x=Math.PI/2;r.rotation.order='YXZ';r.rotation.y=-q+Math.PI/2;r.scale.z=0.4;}
+    const hd=new THREE.Group();hd.position.y=-1.36;el.add(hd);mesh(sph(0.26,10,8),wht,0,-0.1,0,hd).scale.set(1,1.1,0.6);for(let i=0;i<4;i++){const f=mesh(cyl(0.04,0.055,0.5,6),wht,(i-1.5)*0.13,-0.52,0.02,hd);f.rotation.z=(i-1.5)*0.14;mesh(new THREE.ConeGeometry(0.04,0.22,5),blk,(i-1.5)*0.18,-0.86,0.02,hd).rotation.x=Math.PI;}return{a,el,hd};};
+  G.armL=arm(-1);G.armR=arm(1);E.eye=eyeG;
+  E.anim=(e,dt)=>{e.bornT=(e.bornT||0)+dt;const bk=Math.min(1,e.bornT/0.7),ob=1+2.7*Math.pow(bk-1,3)+1.7*Math.pow(bk-1,2);S.scale.setScalar(1.2*Math.max(0.05,ob));
+    const mv=e.state==='chase';const w=mv?Math.sin(e.ph*3.4):0;S.position.y=(e.jy||0);G.legs[0].rotation.x=w*0.6;G.legs[1].rotation.x=-w*0.6;body.position.y=1.75+Math.abs(w)*0.12+Math.sin(e.ph*2)*0.04;body.rotation.z=w*0.08+Math.sin(e.ph*0.9)*0.05;body.rotation.x=0.22+Math.sin(e.ph*1.3)*0.04;
+    const wd=e.state==='wind'?1-e.wind/e.windT:0,sw=e.swing>0?1-e.swing/0.3:0;const ax=e.state==='wind'?-2.6*wd:e.swing>0?-2.6+sw*3.3:0;G.armR.a.rotation.set(ax-w*0.35-0.1,0,0.22);G.armR.el.rotation.x=-0.35-wd*0.8+sw*0.6;G.armL.a.rotation.set((e.throwT>0?-2.7:ax*0.5)+w*0.35-0.1,0,-0.22);G.armL.el.rotation.x=-0.35-(e.throwT>0?0.6:0);if(e.throwT>0)e.throwT-=dt;
+    H.rotation.z=Math.sin(e.ph*1.1)*0.22+(wd?Math.sin(e.ph*30)*0.05:0);H.rotation.y=Math.sin(e.ph*0.7)*0.25;H.rotation.x=-0.18-wd*0.2;const op=(e.state==='wind'?0.6+wd*0.5:0.12+Math.abs(Math.sin(e.ph*1.6))*0.2)+(e.p2?0.15:0);jaw.rotation.x=op*0.6;jaw.position.y=-0.42-op*0.16;maw.scale.set(1.25,0.55+op*0.9,0.5);
+    G.bells.forEach((b,i)=>{b.t.rotation.z=Math.sin(e.ph*3+i*2)*0.14+w*0.1;b.t.rotation.x=Math.sin(e.ph*2.3+i)*0.1;});G.btn.forEach((k,i)=>{k.rotation.z=Math.sin(e.ph*5+i*2)*0.25;k.scale.setScalar(1+Math.sin(e.ph*6+i)*0.06);});G.eyes.forEach((q,i)=>{q.position.x=(i?0.24:-0.24)+Math.sin(e.ph*2.1)*0.03;q.scale.setScalar(e.p2?1.5:1);});};}
+const GBSLOT=[[-0.36,0],[0.36,0],[-0.36,0.72],[0.36,0.72],[-0.36,1.44],[0.36,1.44],[-0.36,2.16],[0.36,2.16],[-1.05,2.1],[1.05,2.1],[-1.7,1.9],[1.7,1.9],[0,2.9],[0,3.6]];
+function gbMerge(M,dt){const F=M.field,gy=M.groundH(F.x,F.z),t=GB.t,ca=GB.ma==null?(GB.ma=Math.atan2(P.x-F.x,P.z-F.z)):GB.ma,rx=Math.cos(ca),rz=-Math.sin(ca);const TL=3.5,TE=5.0;
+  GB.crowd.forEach((c,i)=>{const s=GBSLOT[i%14],t0=i*0.2,k=Math.max(0,Math.min(1,(t-t0)/0.75)),tx=F.x+rx*s[0],tz=F.z+rz*s[0],ty=gy+s[1];const g=c.G.g;
+    if(k<=0){g.position.y=M.groundH(c.bx,c.bz)+Math.abs(Math.sin(t*10+i))*0.25;g.rotation.y=Math.atan2(F.x-c.bx,F.z-c.bz);c.G.anim(T*3+i,1,false);return;}
+    const e=k<1?1-Math.pow(1-k,2):1;let x=lerp(c.bx,tx,e),z=lerp(c.bz,tz,e),y=lerp(M.groundH(c.bx,c.bz),ty,e)+Math.sin(k*Math.PI)*(2.2+s[1]*0.5);
+    if(k>=1){if(!c.land){c.land=1;SFX.step&&SFX.step();burst(tx,ty+0.3,tz,5,1.2,0xf0e8d0);P.shake=Math.max(P.shake,0.06);}const sq=Math.max(0,1-(t-t0-0.75)*5);const sh=Math.max(0,(t-TL)/(TE-TL)),pull=sh*sh;x=lerp(tx,F.x,pull*0.75)+Math.sin(t*38+i*2)*0.07*sh*3;z=lerp(tz,F.z,pull*0.75)+Math.cos(t*33+i)*0.07*sh*3;y=lerp(ty,gy+1.9,pull*0.7)+Math.sin(t*5+i)*0.03;g.scale.set(c.s0*(1+sq*0.25),c.s0*(1-sq*0.3)*(1+pull*0.5),c.s0*(1+sq*0.25));g.rotation.y=ca+Math.sin(t*3+i)*0.3+pull*t*14;g.rotation.z=Math.sin(t*6+i)*0.08*(1+sh*3);c.G.anim(T*2+i,0,false);}
+    else{g.rotation.y+=dt*9;g.rotation.z=0;c.G.anim(T*4+i,1,false);}
+    c.x=x;c.z=z;g.position.set(x,y,z);});
+  const sh=Math.max(0,(t-TL)/(TE-TL));if(sh>0){PU.uHue.value=sh*0.3;P.shake=Math.max(P.shake,sh*0.18);if(Math.random()<0.2+sh*0.6)burst(F.x+(Math.random()-.5)*2.4,gy+0.5+Math.random()*3.4,F.z+(Math.random()-.5)*2.4,5,2.2,[0xd01020,0xe0b030,0xf0f0f0,0x14101c][Math.random()*4|0]);}
+  if(t>=TE){PU.uHue.value=0;flashScreen(0.6);SFX.roar();P.shake=0.6;for(let i=0;i<5;i++)burst(F.x,gy+0.6+i*0.8,F.z,34,4.5,[0xd01020,0xe0b030,0xf0f0f0,0x14101c,0xd01020][i]);GB.crowd.forEach(c=>M.scene.remove(c.G.g));GB.crowd=[];GB.ma=null;sfSet('gnBoss');doSave();gbSpawnBoss(M,false);}}
+/* ---------- Chiller Goblin ---------- */
+function npcChillGob(){const g=new THREE.Group(),S=new THREE.Group();g.add(S);const skin=std({color:0x1f7a16,roughness:0.65,normalMap:TX.rockN,normalScale:V2(1.0),emissive:0x061a03,flatShading:true}),skinD=std({color:0x174a10,roughness:0.8,emissive:0x030e02}),rock=std({map:TX.rock,color:0x6a7080,roughness:0.95,flatShading:true}),dark=basic({color:0x040a06}),eyeM=basic({color:0xff2a18}),cig=std({color:0x4a1c10,roughness:0.9}),ember=basic({color:0xff5a20});[skin,skinD].forEach(m=>rimMat(m,0.12));
+  mesh(displace(new THREE.IcosahedronGeometry(1.0,2),0.16,1.4,5),rock,0,0.45,-0.25,S).scale.set(1.5,0.75,1.2);mesh(displace(new THREE.IcosahedronGeometry(0.5,1),0.1,1.5,9),rock,1.2,0.2,0.3,S);
+  const B=new THREE.Group();B.position.set(0,1.1,0.42);S.add(B);
+  // Rumpf vorgebeugt, kantig
+  const torso=mesh(new THREE.CylinderGeometry(0.3,0.2,0.75,6),skin,0,0.36,0,B);torso.rotation.x=0.35;torso.scale.z=0.75;mesh(new THREE.BoxGeometry(0.62,0.16,0.3),skin,0,0.72,0.13,B);
+  // Beine: eins angewinkelt hoch, eins hängt
+  mesh(tube([[0.16,0.05,0.05],[0.3,0.2,0.55],[0.26,-0.42,0.75]],0.085,8,6),skin,0,0,0,B);mesh(tube([[-0.16,0.05,0.05],[-0.3,-0.1,0.55],[-0.34,-0.72,0.7]],0.085,8,6),skin,0,0,0,B);
+  const foot=(x,y,z)=>{const f=new THREE.Group();f.position.set(x,y,z);B.add(f);mesh(new THREE.BoxGeometry(0.16,0.07,0.3),skin,0,0,0.1,f);for(let i=0;i<3;i++)mesh(new THREE.ConeGeometry(0.03,0.2,4),skinD,(i-1)*0.06,0,0.33,f).rotation.x=Math.PI/2;};foot(0.26,-0.46,0.76);foot(-0.34,-0.76,0.7);
+  // linker Arm lang nach unten auf den Fels gestützt, Riesenhand
+  mesh(tube([[-0.33,0.72,0.13],[-0.5,0.2,0.3],[-0.42,-0.4,0.5]],0.07,8,6),skin,0,0,0,B);const hL=bonyHand(B,skin,-0.42,-0.46,0.52,[Math.PI-0.5,0,0.1],{k:2.6,len:0.13,curl:0.25,spread:0.2,side:1,nail:skinD});
+  // rechter Arm auf dem Knie, Unterarm zum Mund mit Zigarre
+  const aR=new THREE.Group();aR.position.set(0.33,0.72,0.13);B.add(aR);mesh(tube([[0,0,0],[0.14,-0.3,0.32],[0.02,-0.08,0.5]],0.065,8,6),skin,0,0,0,aR);const fa=new THREE.Group();fa.position.set(0.02,-0.08,0.5);aR.add(fa);mesh(tube([[0,0,0],[-0.1,0.05,0.02],[-0.2,0.07,0.02]],0.055,8,5),skin,0,0,0,fa);bonyHand(fa,skin,-0.21,0.09,0.03,[0.2,0.6,0.5],{k:1.6,len:0.08,curl:1.2,side:-1});
+  const cg=new THREE.Group();cg.position.set(-0.2,0.13,-0.08);cg.rotation.set(0,Math.PI/2-0.25,0.1);fa.add(cg);mesh(cyl(0.035,0.04,0.34,8),cig,-0.17,0,0,cg).rotation.z=Math.PI/2;mesh(cyl(0.041,0.041,0.03,8),ember,-0.35,0,0,cg).rotation.z=Math.PI/2;const eg=sprite(TX.glow,0xff5a20,0.15);eg.position.x=-0.37;cg.add(eg);
+  // Kopf: flach, kantig, lange Ohren, rote Augen
+  const H=new THREE.Group();H.position.set(0.04,0.98,0.3);H.rotation.set(0.1,0.35,0);B.add(H);mesh(cyl(0.07,0.09,0.2,6),skin,-0.02,-0.14,-0.08,H);const sk=mesh(new THREE.IcosahedronGeometry(0.2,1),skin,0,0.02,0,H);sk.scale.set(1.0,0.8,1.15);mesh(new THREE.BoxGeometry(0.2,0.1,0.2),skin,0,-0.07,0.17,H);const no=mesh(new THREE.ConeGeometry(0.045,0.2,4),skin,0,-0.02,0.27,H);no.rotation.x=1.9;
+  mesh(new THREE.BoxGeometry(0.3,0.04,0.1),skinD,0,0.06,0.17,H).rotation.x=0.3;const eyes=[];for(const s of[-1,1]){mesh(sph(0.04,6,5),dark,s*0.085,0.02,0.19,H).scale.set(1.3,0.7,0.5);const e=mesh(sph(0.026,6,5),eyeM,s*0.085,0.02,0.205,H);e.scale.set(1.3,0.7,0.5);eyes.push(e);const gl=sprite(TX.glow,0xff2a18,0.14);gl.position.set(s*0.085,0.02,0.22);H.add(gl);
+    const er=new THREE.Group();er.position.set(s*0.17,0.05,-0.02);er.rotation.set(0,-s*0.3,-s*(Math.PI/2-0.45));H.add(er);mesh(new THREE.ConeGeometry(0.075,0.5,4),skin,0,0.25,0,er).scale.z=0.25;mesh(new THREE.ConeGeometry(0.04,0.34,4),skinD,0,0.2,0.016,er).scale.z=0.15;er.userData.s=s;(H.userData.ears=H.userData.ears||[]).push(er);}
+  mesh(new THREE.BoxGeometry(0.15,0.012,0.02),dark,0,-0.1,0.275,H);
+  const sm=[];for(let i=0;i<7;i++){const p=sprite(TX.glow,0xc8d0f0,0.2);p.material.blending=THREE.NormalBlending;S.add(p);sm.push(p);}
+  g.userData.anim=t=>{const cyc=(t*0.22)%1,up=cyc<0.12?cyc/0.12:cyc<0.34?1:cyc<0.46?1-(cyc-0.34)/0.12:0;fa.rotation.x=(1-up)*0.75;fa.rotation.z=(1-up)*-0.5;H.rotation.y=0.35+Math.sin(t*0.3)*0.2-(up*0.1);H.rotation.x=0.1+Math.sin(t*0.5)*0.04;B.rotation.x=Math.sin(t*0.8)*0.015;eg.material.opacity=0.5+(cyc>0.12&&cyc<0.34?0.5:Math.sin(t*2)*0.1);eyes.forEach(e=>e.scale.y=Math.sin(t*0.31)>0.99?0.1:0.7);H.userData.ears.forEach(e=>{e.rotation.z=-e.userData.s*(Math.PI/2-0.45+Math.sin(t*0.9+e.userData.s)*0.06);});hL.userData.fs.forEach((f,i)=>{f.rotation.x=0.12+Math.sin(t*1.2+i)*0.06;});
+    sm.forEach((p,i)=>{const u=((t*0.22-0.46+i*0.02)%1+1)%1,on=u<0.5?u/0.5:1;const v=i/7+u;p.position.set(-0.25-u*0.6+Math.sin(v*9)*0.12,2.0+u*2.4+i*0.08,0.75+Math.cos(v*7)*0.1);p.material.opacity=u<0.5?Math.sin(u*2*Math.PI*0.5)*0.4:0;p.scale.setScalar(0.18+u*0.9);});};return g;}
+function chillGobEnsure(M){if(M._cg!==undefined||!M.blocked||!M.scene)return;M._cg=null;const c=M.townC||{x:0,z:0},sp=M.spawn||c,ge=M.gateEntrance||c,R=mulberry32(4711);let p=null;
+  for(let k=0;k<900&&!p;k++){const a=R()*6.28,r=42+R()*36,x=c.x+Math.cos(a)*r,z=c.z+Math.sin(a)*r;try{if(M.blocked(x,z,1.8))continue;let fr=0;for(let q=0;q<6.28;q+=0.785)if(!M.blocked(x+Math.cos(q)*3.2,z+Math.sin(q)*3.2,0.5))fr++;if(fr<5)continue;}catch(e){continue;}const h=M.groundH(x,z);if(M.waterY!=null&&h<M.waterY+0.4)continue;if(Math.abs(M.groundH(x+1.5,z)-M.groundH(x-1.5,z))>0.7||Math.abs(M.groundH(x,z+1.5)-M.groundH(x,z-1.5))>0.7)continue;if(Math.hypot(x-sp.x,z-sp.z)<28||Math.hypot(x-ge.x,z-ge.z)<22)continue;if((M.doors||[]).some(d=>Math.hypot(d.x-x,d.z-z)<24))continue;p={x,z,h};}
+  if(!p)return;let yaw=0,best=-1;for(let q=0;q<6.28;q+=0.39){let d=0;while(d<8&&!M.blocked(p.x+Math.sin(q)*(2+d),p.z+Math.cos(q)*(2+d),0.5))d+=1;if(d>best){best=d;yaw=q;}}
+  const g=npcChillGob();g.position.set(p.x,p.h-0.08,p.z);g.rotation.y=yaw;g.add(blobShadow(1.5));M.scene.add(g);M.obst.push({x:p.x,z:p.z,r:1.15});const n={type:'npc',id:'chillgob',name:'Chiller Goblin',x:p.x,z:p.z,y:p.h,mesh:g,label:'Mit dem Chiller Goblin sprechen',range:3.6,turn:false,baseYaw:yaw};M.npcs.push(n);M.items.push(n);M._cg=n;}
+function chillGobTalk(n){const smoke=()=>{closeUI();startViceFx('joint',null,()=>{viceEffect('joint');burst(n.x,n.y+2,n.z,18,0.8,0xd0d6e0);setTimeout(()=>toast('Chiller Goblin: '+pick(['Siehst du. Der Wald atmet mit.','Kein Stress. Der Mond macht das schon.','Bleib sitzen, solange du willst. Der Stein gehört keinem.'])),2200);});};
+  return{text:pick(['Psst. Nicht so laut. Der Wald chillt gerade.','Im Dorf rennen alle. Ich sitz hier. Einer muss ja.','Ich war mal Kobold in Krummwinkel. Zu viel Lärm, zu viele Zahnräder. Hier ist nur Mond.','Setz dich, Blechmann. Der Stein ist groß genug für zwei, die nichts vorhaben.','Die Wölfe kennen mich. Wir haben eine Abmachung: Ich rauche, sie heulen, keiner stört keinen.']),opts:[{l:'Einen rauchen',main:1,f:smoke},{l:'Gehen',f:closeUI}]};}
+
 /* ---------- Portal ---------- */
 function portalMesh(col){const g=new THREE.Group();const st=std({map:TX.stone,normalMap:TX.stoneN,color:0xb0a8a8,roughness:0.9});const gold=std({color:0xd8a840,metalness:0.92,roughness:0.28,emissive:0x2a1c00});
   for(const s of[-1,1]){mesh(new THREE.BoxGeometry(0.7,0.5,0.9),st,s*1.35,0.25,0,g);mesh(cyl(0.26,0.3,3.0,12),st,s*1.35,2.0,0,g);mesh(sph(0.2,10,8),gold,s*1.35,3.62,0,g);}
@@ -6383,7 +6453,7 @@ const TUT=[
  {t:isTouch?'Wisch rechts, um dich umzusehen':'Schau dich mit der Maus um',h:'',done:()=>P.looked>1.2},
 ];
 function tutStep(){return P.tut<TUT.length&&cur&&cur.id==='mondsee'&&cur.kind!=='dung'?TUT[P.tut]:null;}
-function updObjective(){if(!cur)return;if(cur.bossWorld){$('hint').textContent='';setObj(cur.bw.objective());return;}if(cur.objFn){$('hint').textContent='';setObj(cur.objFn());return;}const so=storyObj();if(so){setObj(so.t);$('hint').textContent=so.h||(so.tgt&&cur.kind==='over'?'Die goldene Lichtsäule zeigt dir den Weg':'');return;}const ts=tutStep();$('hint').textContent='';
+function updObjective(){if(!cur)return;if(cur.bossWorld){$('hint').textContent='';setObj(cur.bw.objective());return;}if(cur.objFn){$('hint').textContent='';setObj(cur.objFn());return;}const so=storyObj();if(so){setObj(so.t);$('hint').textContent=so.h||(so.tgt&&cur.kind==='over'?'Das gelbe Ausrufezeichen zeigt dir den Weg':'');return;}const ts=tutStep();$('hint').textContent='';
   if(cur.kind==='int'){setObj(cur.name);return;}
   if(cur.kind==='dung'){const pl=cur.plan,ms=cur.mages||[],f=ms.filter(m=>m.found).length,n=ms.length;const stone=!cur.side&&!P.hasRelic;
     const qt=qActive(P.track)&&QUESTS[P.track].dq&&QUESTS[P.track].map===cur.themeId&&QS[P.track].n<QUESTS[P.track].goal;const qs=qt?'Auftrag · '+QUESTS[P.track].title+' · '+qStatus(P.track)+' · ':'';
@@ -6468,6 +6538,7 @@ const NPCDEF={
   zwick:{name:'Zwick',to:'zu Zwick',build:()=>npcGoblin({v:1,hat:true}),r:0.5,talk:()=>questTalk('shells',{offer:'Drei Becher, eine Münze, null Garantien. Schlag mich dreimal und mein Kettenhemd gehört dir. Wird nicht passieren.',active:n=>n+' von 3. Glück. Reines Glück. Nochmal?',ready:'Grmpf. Nimm das Hemd. Es kratzt sowieso.',done:'Du schon wieder. Meine Becher haben Angst vor dir.'},[{l:'Spielen · 10 Silber',f:startShells}])},
   schorn:{name:'Der Schornsteinmann',to:'zum Schornsteinmann',build:npcChimney,r:0.6,talk:()=>questTalk('thieves',{offer:'Rauch steigt. Diebe auch. Vier Kobolde hocken in den Gassen und stehlen Kamine. Mach sie leiser.',active:n=>'Noch '+(4-n)+'. Ich rieche sie in den Seitengassen.',ready:'Ruhe in den Gassen. Mein Rauch steigt wieder gerade. Danke.',done:'Mein Rauch schreibt deinen Namen in den Himmel. Langsam.'})},
   odd:{name:'Wanderer',talk:n=>oddTalk(n)},
+  chillgob:{name:'Chiller Goblin',talk:n=>chillGobTalk(n)},
   board:{name:'Ruhmestafel',talk:()=>{setTimeout(()=>{if(state==='ui')openBoard();},0);return{text:'Eine Tafel voller Namen und Zahlen.',opts:[{l:'Gehen',f:closeUI}]};}},
   fatknight:{name:'Der dicke Ritter',to:'zum dicken Ritter',build:npcFatKnight,r:1.0,talk:n=>fatKnightTalk(n)},
   chiller:{name:'Der Pilz-Chiller',talk:n=>chillerTalk(n)},
@@ -6705,7 +6776,7 @@ function showUI(){const play=state==='play';$('hud').classList.toggle('hidden',!
   $('compass').style.visibility=$('obj').style.visibility=$('topbtns').style.visibility=play?'visible':'hidden';$('bView').classList.toggle('on',P.view==='tp');$('bWisp').classList.toggle('on',!!P.wisp);if(PM)PM.root.visible=(play&&P.view==='tp')||state==='cine'||state==='title'||state==='ui';}
 function detachKnight(){if(KN.root.parent)KN.root.parent.remove(KN.root);}
 function knightInBoat(boat){poseKnight(KN,'lie');KN.root.position.set(0.02,0.16,0.75);KN.root.rotation.y=0;boat.add(KN.root);}
-function enterMap(id,at){frankSync();const M=getMap(id);try{boardEnsure(M);}catch(e){}if(id==='pilz')M._chRoll=1;if(id==='burg')ENTERN_FK++;if(ODDMAPS[id])try{oddEnsure(M);}catch(e){}P.hasRelic=false;busy=false;detachKnight();PU.uHue.value=0;if(VICE.hallu){VICE.hallu.end&&VICE.hallu.end();if(VICE.hallu.mesh&&VICE.hallu.mesh.parent)VICE.hallu.mesh.parent.remove(VICE.hallu.mesh);VICE.hallu=null;}VICE.smoke.forEach(s=>s.s.parent&&s.s.parent.remove(s.s));VICE.smoke=[];poseKnight(PM,'stand');evClear();EVT.timer=at?EVT.timer:25;if(!at)EVT.night={};M.scene.add(PM.root);
+function enterMap(id,at){frankSync();const M=getMap(id);if(id==='mondsee')try{chillGobEnsure(M);}catch(e){}try{boardEnsure(M);}catch(e){}if(id==='pilz')M._chRoll=1;if(id==='burg')ENTERN_FK++;if(ODDMAPS[id])try{oddEnsure(M);}catch(e){}P.hasRelic=false;busy=false;detachKnight();PU.uHue.value=0;if(VICE.hallu){VICE.hallu.end&&VICE.hallu.end();if(VICE.hallu.mesh&&VICE.hallu.mesh.parent)VICE.hallu.mesh.parent.remove(VICE.hallu.mesh);VICE.hallu=null;}VICE.smoke.forEach(s=>s.s.parent&&s.s.parent.remove(s.s));VICE.smoke=[];poseKnight(PM,'stand');evClear();EVT.timer=at?EVT.timer:25;if(!at)EVT.night={};M.scene.add(PM.root);
   if(M.fire)M.fire.visible=false;if(M.seat)M.seat.visible=false;if(M.cineGob)M.cineGob.root.visible=false;if(M.boatRest)M.boatRest();
   M.enemies.forEach(e=>M.scene.remove(e.mesh));M.enemies=[];if(M.reset)M.reset(P.level);
   const night=id===nightMap();setGateActive(M,true);if(night)M.enemySpawn(P.level).forEach(([t,x,z])=>M.enemies.push(makeEnemy(t,x,z,Math.max(0,P.level-1),M.scene)));
